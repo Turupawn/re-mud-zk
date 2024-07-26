@@ -13,7 +13,7 @@ interface ICircomVerifier {
 }
 
 contract MyGameSystem is System {
-  event PlayerMoved(address indexed player, int32 x, int32 y);
+  event PlayerMoved(address player, int32 x, int32 y);
 
   function spawn(int32 x, int32 y) public {
     address playerAddress = _msgSender();
@@ -41,7 +41,7 @@ contract MyGameSystem is System {
     Player.setX(playerAddress, x);
     Player.setY(playerAddress, y);
 
-    emit PlayerMoved(msg.sender, x, y);
+    emit PlayerMoved(playerAddress, x, y);
   }
 
   function detonateBomb(uint[2] calldata _pA, uint[2][2] calldata _pB, uint[2] calldata _pC, uint[4] calldata _pubSignals, address playerAddress) public {

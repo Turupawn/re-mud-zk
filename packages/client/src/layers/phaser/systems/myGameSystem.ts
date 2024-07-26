@@ -6,11 +6,6 @@ import {
 } from "@latticexyz/phaserx";
 import { TILE_WIDTH, TILE_HEIGHT, Animations, Directions } from "../constants";
 
-function to20ByteAddress(fullAddress: string): string {
-    const shortAddress = '0x' + fullAddress.slice(26);
-    return shortAddress;
-}
-
 export const createMyGameSystem = (layer: PhaserLayer) => {
   const {
     world,
@@ -20,8 +15,7 @@ export const createMyGameSystem = (layer: PhaserLayer) => {
       },
       systemCalls: {
         spawn,
-        move,
-        detonateBomb
+        move
       }
     },
     scenes: {
@@ -130,10 +124,7 @@ export const createMyGameSystem = (layer: PhaserLayer) => {
     const playerObj = objectPool.get(entity, "Sprite");
 
 
-    if(!player.isDead)
-    {
-        detonateBomb(pixelPosition.x/32, pixelPosition.y/32, to20ByteAddress(entity));
-    }else
+    if(player.isDead)
     {
         playerObj.setComponent({
             id: 'animation',
