@@ -16,11 +16,11 @@ const PORT = 8080;
 // Ethereum provider and contract setup
 const provider = new ethers.JsonRpcProvider('http://localhost:8545'); // Adjust RPC URL as needed
 const contractABI = [
-    "event PlayerMoved(address player, int32 x, int32 y)",
     "function detonateBomb(uint[2] calldata _pA, uint[2][2] calldata _pB, uint[2] calldata _pC, uint[4] calldata _pubSignals, address playerAddress)",
 ];
 
 const contractABIWorld = [
+    "event Store_SetRecord(bytes32 indexed tableId, bytes32[] keyTuple, bytes staticData, bytes32 encodedLengths, bytes dynamicData)",
     "function app__detonateBomb(uint[2] calldata _pA, uint[2][2] calldata _pB, uint[2] calldata _pC, uint[4] calldata _pubSignals, address playerAddress)"
 ];
 
@@ -29,16 +29,44 @@ const wallet = new ethers.Wallet(privateKey, provider);
 const contract = new ethers.Contract(contractAddress, contractABI, wallet);
 const contractWorld = new ethers.Contract(contractAddressWorld, contractABIWorld, wallet);
 
-contract.on('PlayerMoved', async (player, x, y) => {
-    console.log(`Player moved to position (${x}, ${y})`);
+
+function decodeRecord(hexString) {
+    // Ensure the hex string is correctly formatted
+    if (hexString.startsWith('0x')) {
+        hexString = hexString.slice(2);
+    }
+
+    // Extract the parts from the hex string
+    const xHex = hexString.slice(0, 8);
+    const yHex = hexString.slice(8, 16);
+    const isDeadHex = hexString.slice(16, 18);
+
+    // Convert to 32-bit signed integers
+    const x = parseInt(xHex, 16) | 0; // Use bitwise OR to ensure 32-bit signed integer
+    const y = parseInt(yHex, 16) | 0; // Use bitwise OR to ensure 32-bit signed integer
+
+    // Convert the boolean part
+    const isDead = parseInt(isDeadHex, 16) != 0;
+
+    return { x, y, isDead };
+}
+
+contractWorld.on("Store_SetRecord", async (tableId, keyTuple, staticData, encodedLengths, dynamicData) => {
+    let decodedRecord = decodeRecord(staticData);
+    let player = '0x' + keyTuple[0].replace(/^0x000000000000000000000000/, '');
+
+    if(!decodedRecord.isDead)
+    {
+        await detonateBomb(player, decodedRecord.x, decodedRecord.y);
+    }
+});
+
+async function detonateBomb(player, x, y) {
+    console.log(`Player move to (${x}, ${y})`);
 
     // Check if the position matches any bomb position
     for (const bomb of bombPositions) {
         if (""+bomb.x === ""+x && ""+bomb.y === ""+y) {
-            console.log("BOMBA")
-            console.log(x)
-            console.log(y)
-            console.log(player)
             try {
                 // Generate and verify proof
                 const { proof, publicSignals } = await snarkjs.groth16.fullProve(
@@ -55,14 +83,6 @@ contract.on('PlayerMoved', async (player, x, y) => {
                     "./zk_artifacts/detonateBomb.wasm",
                     "./zk_artifacts/detonateBomb_final.zkey"
                 );
-
-                console.log(proof)
-                console.log(publicSignals)
-                
-                //const vkey = await loadVerificationKey();
-                //const res = await snarkjs.groth16.verify('./zk_artifacts/verification_key.json', publicSignals, proof);
-                //console.log(res)
-                
 
                 let pA = proof.pi_a;
                 pA.pop();
@@ -86,7 +106,7 @@ contract.on('PlayerMoved', async (player, x, y) => {
             }
         }
     }
-});
+}
 
 app.get('/', (req, res) => {
     res.send('Server is running');
